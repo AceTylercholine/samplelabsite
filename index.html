@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conference List</title>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --light: #ecf0f1;
+            --border: #bdc3c7;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            color: #333;
+        }
+        h1 { margin-bottom: 20px; }
+        
+        /* Search Bar */
+        #search {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 20px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+
+        /* Table Styling */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th, td {
+            text-align: left;
+            padding: 12px;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: var(--primary);
+            color: white;
+            cursor: pointer;
+            user-select: none;
+        }
+        th:hover { background-color: #34495e; }
+        tr:hover { background-color: var(--light); }
+        
+        a { color: #2980b9; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        .loading { font-style: italic; color: #7f8c8d; }
+    </style>
+</head>
+<body>
+
+    <h1>Upcoming Conferences</h1>
+    <input type="text" id="search" placeholder="Search by name, topic, or location..." onkeyup="filterTable()">
+    
+    <div id="table-container">
+        <p class="loading">Loading data...</p>
+    </div>
+
+<script>
+    // PASTE YOUR GOOGLE SHEET CSV LINK HERE
+    // If testing locally without a server, use a relative path like './data.csv' 
+    // Note: Chrome blocks local file fetch by default due to CORS.
+    const DATA_SOURCE = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT27gs-8RA1WphbNFm4CqXJ9okPe9T4FJKgTxsQ6TLlBU41Ujd5vqTaU9TaZPn7aXKZHdf0smRUwE4p/pub?output=csv'; 
+
+    let tableData = [];
+
+    document.addEventListener('DOMContentLoaded', () => {
+        fetchData();
+    });
+
+    async function fetchData() {
+        try {
+            // For demo purposes, if DATA_SOURCE is default, we use dummy data
+            if (DATA_SOURCE.includes('EXAMPLE_KEY')) {
+                const dummyCSV = `Conference Name,Date,Location,Topic,Website
+Generic BioChem 2026,2026-03-12,Berlin,Biochemistry,https://example.com
+NeuroSocial Summit,2026-06-15,San Diego,Neuroscience,https://example.com
+Primate Behavior Conf,2026-09-10,Göttingen,Ethology,https://example.com`;
+                parseCSV(dummyCSV);
+            } else {
+                const response = await fetch(DATA_SOURCE);
+                const text = await response.text();
+                parseCSV(text);
+            }
+        } catch (error) {
+            document.getElementById('table-container').innerHTML = `<p style="color:red">Error loading data: ${error.message}</p>`;
+        }
+    }
+
+    function parseCSV(text) {
+        const lines = text.trim().split('\n');
+        const headers = lines[0].split(',').map(h => h.trim());
+        
+        tableData = lines.slice(1).map(line => {
+            // Regex handles commas inside quotes
+            const values = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || [];
+            return values.map(val => val.replace(/^"|"$/g, '').trim()); // Clean quotes
+        });
+
+        renderTable(tableData, headers);
+    }
+
+    function renderTable(rows, headers) {
+        if (rows.length === 0) {
+            document.getElementById('table-container').innerHTML = '<p>No conferences found.</p>';
+            return;
+        }
+
+        let html = '<table><thead><tr>';
+        headers.forEach((header, index) => {
+            html += `<th onclick="sortTable(${index})">${header} &#8597;</th>`;
+        });
+        html += '</tr></thead><tbody>';
+
+        rows.forEach(row => {
+            html += '<tr>';
+            row.forEach(cell => {
+                // Auto-detect URLs and link them
+                if (cell.startsWith('http')) {
+                    html += `<td><a href="${cell}" target="_blank">Link</a></td>`;
+                } else {
+                    html += `<td>${cell}</td>`;
+                }
+            });
+            html += '</tr>';
+        });
+
+        html += '</tbody></table>';
+        document.getElementById('table-container').innerHTML = html;
+    }
+
+    function filterTable() {
+        const input = document.getElementById('search');
+        const filter = input.value.toLowerCase();
+        const table = document.querySelector('table');
+        const tr = table.getElementsByTagName('tr');
+
+        // Loop through all table rows, and hide those who don't match the search query
+        for (let i = 1; i < tr.length; i++) {
+            let rowText = tr[i].textContent.toLowerCase();
+            if (rowText.indexOf(filter) > -1) {
+                tr[i].style.display = "";
+            } else {
+                tr[i].style.display = "none";
+            }
+        }
+    }
+
+    function sortTable(n) {
+        const table = document.querySelector('table');
+        let rows, switching, i, x, y, shouldSwitch, dir, switchcount = 0;
+        switching = true;
+        dir = "asc"; 
+        
+        while (switching) {
+            switching = false;
+            rows = table.rows;
+            for (i = 1; i < (rows.length - 1); i++) {
+                shouldSwitch = false;
+                x = rows[i].getElementsByTagName("TD")[n];
+                y = rows[i + 1].getElementsByTagName("TD")[n];
+                
+                if (dir == "asc") {
+                    if (x.innerHTML.toLowerCase() > y.innerHTML.toLowerCase()) {
+                        shouldSwitch = true;
+                        break;
+                    }
+                } else if (dir == "desc") {
+                    if (x.innerHTML.toLowerCase() < y.innerHTML.toLowerCase()) {
+                        shouldSwitch = true;
+                        break;
+                    }
+                }
+            }
+            if (shouldSwitch) {
+                rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+                switching = true;
+                switchcount ++; 
+            } else {
+                if (switchcount == 0 && dir == "asc") {
+                    dir = "desc";
+                    switching = true;
+                }
+            }
+        }
+    }
+</script>
+
+</body>
+</html>
